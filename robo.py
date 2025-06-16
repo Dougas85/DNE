@@ -1,4 +1,5 @@
 import os
+import sys
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -7,7 +8,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
 import logging
 import requests
-import sys
 
 def check_internet():
     try:
@@ -18,7 +18,7 @@ def check_internet():
 
 def iniciar_navegador():
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
+    options.add_argument('--headless')  # Rodar sem interface gráfica
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     navegador = webdriver.Chrome(options=options)
@@ -74,7 +74,8 @@ def cadastrar_faixa_cep(navegador, row, index, cidade):
 
         navegador.find_element(By.ID, "bairroAutoComplete").send_keys(bairro)
         WebDriverWait(navegador, 10).until(
-            EC.element_to_be_clickable((By.XPATH, f"//ul/li/div[text()=\"{bairro}\"]"))).click()
+            EC.element_to_be_clickable((By.XPATH, f"//ul/li/div[text()=\"{bairro}\"]"))
+        ).click()
 
         navegador.find_element(By.ID, "tipoLogradouroCombo").send_keys(tipo)
         navegador.find_element(By.ID, "tituloPatenteCombo").send_keys('' if pd.isna(titulo) else titulo)
@@ -139,12 +140,17 @@ def processar_excel(path):
         if navegador:
             navegador.quit()
 
+def processar_arquivo(caminho):
+    if os.path.exists(caminho):
+        processar_excel(caminho)
+        return "Processamento finalizado."
+    else:
+        return f"Arquivo não encontrado: {caminho}"
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Uso: python robo.py caminho_do_arquivo.xlsx")
     else:
         caminho = sys.argv[1]
-        if os.path.exists(caminho):
-            processar_excel(caminho)
-        else:
-            print("Arquivo não encontrado:", caminho)
+        resultado = processar_arquivo(caminho)
+        print(resultado)
