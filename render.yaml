@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: cadastro-logradouros
+    env: python
+    buildCommand: ""
+    startCommand: python robo.py
+    envVars:
+      - key: FLASK_ENV
+        value: production
