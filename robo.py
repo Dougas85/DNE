@@ -1,6 +1,4 @@
 import os
-from flask import Flask, render_template, request, redirect, flash
-from werkzeug.utils import secure_filename
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -9,39 +7,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
 import logging
 import requests
-
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'xlsx'}
-
-app = Flask(__name__)
-app.secret_key = 'segredo'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        if 'excel' not in request.files:
-            flash('Nenhum arquivo enviado.')
-            return redirect(request.url)
-        file = request.files['excel']
-        if file.filename == '':
-            flash('Nenhum arquivo selecionado.')
-            return redirect(request.url)
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(path)
-            flash('Arquivo enviado com sucesso! Processando...')
-            resultado = processar_excel(path)
-            flash(resultado)
-            return redirect('/')
-    return render_template('index.html')
-
+import sys
 
 def check_internet():
     try:
@@ -50,10 +16,9 @@ def check_internet():
     except requests.ConnectionError:
         return False
 
-
 def iniciar_navegador():
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless')  # Retire se quiser ver o navegador
+    options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     navegador = webdriver.Chrome(options=options)
@@ -61,18 +26,15 @@ def iniciar_navegador():
     sleep(2)
     return navegador
 
-
 def login(navegador):
     navegador.find_element(By.ID, "username").send_keys("81058616")
     navegador.find_element(By.ID, "password").send_keys("Raket**2324")
     navegador.find_element(By.NAME, "submitBtn").click()
     sleep(2)
 
-
 def pesquisar_localidade(navegador, cidade):
     navegador.get("https://apps3.correios.com.br/dne/#/logradouro/consultar")
     sleep(1)
-
 
 def cadastrar_faixa_cep(navegador, row, index, cidade):
     try:
@@ -145,42 +107,44 @@ def cadastrar_faixa_cep(navegador, row, index, cidade):
     except Exception as e:
         logging.error(f"Linha {index}: {e}")
 
-
 def processar_excel(path):
+    navegador = None
     try:
-        navegador = None
         while True:
             if not check_internet():
+                print("Sem internet. Aguardando reconexão...")
                 if navegador:
                     navegador.quit()
                 sleep(5)
                 continue
 
-            try:
-                navegador = iniciar_navegador()
-                login(navegador)
-                df = pd.read_excel(path, dtype=str, engine='openpyxl')
+            navegador = iniciar_navegador()
+            login(navegador)
+            df = pd.read_excel(path, dtype=str, engine='openpyxl')
 
-                for index, row in df.iterrows():
-                    cidade = row['CIDADE,C,61']
-                    pesquisar_localidade(navegador, cidade)
-                    cadastrar_faixa_cep(navegador, row, index, cidade)
+            for index, row in df.iterrows():
+                cidade = row['CIDADE,C,61']
+                pesquisar_localidade(navegador, cidade)
+                cadastrar_faixa_cep(navegador, row, index, cidade)
 
-                navegador.quit()
-                return "Processamento concluído com sucesso!"
+            navegador.quit()
+            print("Processamento concluído com sucesso.")
+            break
 
-            except Exception as e:
-                if navegador:
-                    navegador.quit()
-                logging.error(f"Erro durante o processamento: {e}")
-                return f"Erro durante o processamento: {e}"
+    except Exception as e:
+        logging.error(f"Erro durante o processamento: {e}")
+        print(f"Erro: {e}")
 
     finally:
         if navegador:
             navegador.quit()
 
-
 if __name__ == '__main__':
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    if len(sys.argv) < 2:
+        print("Uso: python robo.py caminho_do_arquivo.xlsx")
+    else:
+        caminho = sys.argv[1]
+        if os.path.exists(caminho):
+            processar_excel(caminho)
+        else:
+            print("Arquivo não encontrado:", caminho)
