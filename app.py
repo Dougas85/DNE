@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, flash, redirect, url_for
 from werkzeug.utils import secure_filename
-from .robo import processar_arquivo
+from robo import processar_arquivo
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'xlsx'}
