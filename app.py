@@ -1,7 +1,7 @@
 import os
+import requests
 from flask import Flask, render_template, request, flash, redirect, url_for
 from werkzeug.utils import secure_filename
-from robo import processar_arquivo
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'xlsx'}
@@ -11,12 +11,14 @@ app.secret_key = 'segredo'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Endereço da máquina local onde o robô está rodando
+ROBO_LOCAL_URL = "http://SEU_IP_LOCAL:5001/processar"  # Substitua pelo IP da sua máquina local
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    print("Templates disponíveis:", os.listdir('templates'))
     if request.method == 'POST':
         file = request.files.get('excel')
         if not file:
@@ -27,13 +29,18 @@ def index():
             filename = secure_filename(file.filename)
             caminho = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(caminho)
+
             flash(f'Arquivo {filename} enviado com sucesso!')
 
             try:
-                resultado = processar_arquivo(caminho)
-                flash(resultado)
+                # Envia o nome do arquivo para o robô local processar
+                resposta = requests.post(ROBO_LOCAL_URL, json={"arquivo": filename})
+                if resposta.status_code == 200:
+                    flash("Arquivo enviado para processamento local.")
+                else:
+                    flash(f"Falha ao comunicar com o robô local: {resposta.text}")
             except Exception as e:
-                flash(f'Ocorreu um erro durante o processamento: {e}')
+                flash(f"Erro ao tentar se comunicar com o robô local: {e}")
 
             return redirect(url_for('index'))
         else:
