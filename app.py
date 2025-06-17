@@ -16,6 +16,7 @@ def allowed_file(filename):
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    print("Templates disponíveis:", os.listdir('templates'))
     if request.method == 'POST':
         file = request.files.get('excel')
         if not file:
